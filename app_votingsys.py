@@ -7,8 +7,53 @@ import base64, io, numpy as np
 from PIL import Image
 #from deepface import DeepFace
 from dotenv import load_dotenv
-# --- ADDED IMPORT ---
-from werkzeug.security import generate_password_hash, check_password_hash
+# --- MODIFIED IMPORTS for SHA-256 ---
+# Removed: from werkzeug.security import generate_password_hash, check_password_hash
+import hashlib, secrets
+# --- END MODIFIED IMPORTS ---
+
+
+# --- HASHING UTILITIES (NEW) ---
+
+def hash_sha256(password, salt=None):
+    """
+    Generates an SHA-256 hash of the password combined with a salt.
+    Returns the hash in 'salt$hash' format.
+    """
+    # 16 bytes (32 hex chars) is used as a consistent salt length
+    if salt is None:
+        salt = secrets.token_hex(16)
+    
+    # Combine salt and password, then encode to bytes for hashing
+    salted_password = (salt + password).encode('utf-8')
+    
+    # Perform a single round of SHA-256 hashing
+    hashed = hashlib.sha256(salted_password).hexdigest()
+    
+    # Return the salt and hash, separated by $
+    return f"{salt}${hashed}"
+
+
+# --- CODE COMPARISON FUNCTION (MODIFIED) ---
+def compare_codes(entered_code, stored_hash):
+    """
+    Performs SHA-256 hash comparison for code validation.
+    The stored_hash must be in 'salt$hash' format.
+    """
+    if not stored_hash or '$' not in stored_hash:
+        return False
+    
+    try:
+        # Extract the salt and the stored hash value
+        salt, stored_hashed_password = stored_hash.split('$', 1)
+    except ValueError:
+        return False
+
+    # Hash the entered code using the stored salt
+    entered_hashed_password = hash_sha256(entered_code, salt).split('$')[1]
+    
+    # Use constant-time comparison for security against timing attacks
+    return secrets.compare_digest(entered_hashed_password, stored_hashed_password)
 
 # --- Initialization ---
 load_dotenv()
@@ -17,14 +62,6 @@ app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
 IST = pytz.timezone('Asia/Kolkata')
 UTC = pytz.utc
-
-# --- CODE COMPARISON FUNCTION (MODIFIED) ---
-def compare_codes(entered_code, stored_hash):
-    """Performs hash comparison for code validation."""
-    if stored_hash is None:
-        return False
-    # Use check_password_hash for secure comparison
-    return check_password_hash(stored_hash, entered_code)
 
 # --- DB helper ---
 def get_db():
@@ -41,7 +78,7 @@ def get_db():
     except psycopg2.OperationalError as e:
         app.logger.error(f"Error connecting to PostgreSQL database: {e}")
         return None
-     
+    
 # --- Utility: numeric sort ---
 def numeric_sort(arr):
     def parse_num(s):
@@ -267,27 +304,25 @@ def verify_code():
             # --- TIERED CODE VALIDATION LOGIC ---
             is_valid_code = False
             is_reset_required = False
-            # FLAG for the new single-use requirement
             should_nullify_secret_code = False 
             
             # Check 1: Mandatory Reset Case (secret_code set, reset_code is NULL)
             if voter_secret_code_hash and voter_reset_code_hash is None:
-                if compare_codes(entered_code, voter_secret_code_hash): # Uses check_password_hash
+                if compare_codes(entered_code, voter_secret_code_hash): # Uses custom compare_codes
                     is_reset_required = True
                     is_valid_code = True 
             
             # Check 2: Verification using User-Set Reset Code (reset_code is primary/permanent)
             elif voter_reset_code_hash:
-                if compare_codes(entered_code, voter_reset_code_hash): # Uses check_password_hash
+                if compare_codes(entered_code, voter_reset_code_hash): # Uses custom compare_codes
                     is_valid_code = True
             
             # Check 3: Fallback to Admin/Mobile Secret Code (Used for one-time entry)
-            # This is the key change: if they use the secret_code and are NOT forced to reset (i.e. reset_code exists), it's a one-time login.
             elif voter_secret_code_hash:
-                 if compare_codes(entered_code, voter_secret_code_hash): # Uses check_password_hash
-                     is_valid_code = True
-                     # Mark the temporary secret_code for immediate nullification after successful use
-                     should_nullify_secret_code = True
+                if compare_codes(entered_code, voter_secret_code_hash): # Uses custom compare_codes
+                    is_valid_code = True
+                    # Mark the temporary secret_code for immediate nullification after successful use
+                    should_nullify_secret_code = True
             
             
             if not is_valid_code:
@@ -410,19 +445,20 @@ def reset_code():
         params = [society]
 
         if len(parts) == 4: # Apartment (society-tower-floor-flat) -> Use tower and flat
-             where_clauses.extend(["tower=%s", "flat=%s"])
-             params.extend([parts[1], parts[3]]) 
+            where_clauses.extend(["tower=%s", "flat=%s"])
+            params.extend([parts[1], parts[3]]) 
         elif len(parts) == 3: # Individual lanes (society-lane-house)
-             where_clauses.extend(["lane=%s", "house_number=%s"])
-             params.extend([parts[1], parts[2]]) 
+            where_clauses.extend(["lane=%s", "house_number=%s"])
+            params.extend([parts[1], parts[2]]) 
         elif len(parts) == 2: # Individual no lanes (society-flat)
-             where_clauses.append("flat=%s")
-             params.extend([parts[1]])
+            where_clauses.append("flat=%s")
+            params.extend([parts[1]])
         else:
-             return jsonify({"success": False, "message": "Invalid user identifier format."}), 400
+            return jsonify({"success": False, "message": "Invalid user identifier format."}), 400
         
-        # --- HASH THE NEW CODE BEFORE STORING ---
-        hashed_new_code = generate_password_hash(new_code)
+        # --- HASH THE NEW CODE BEFORE STORING (MODIFIED) ---
+        # Generate new SHA-256 hash with a random salt
+        hashed_new_code = hash_sha256(new_code)
         
         # Update the database: Set the new HASHED code into 'reset_code'
         update_query = "UPDATE households SET reset_code=%s WHERE " + " AND ".join(where_clauses)
@@ -566,9 +602,9 @@ def submit_vote():
 
             for c in selected:
                 cur.execute("""INSERT INTO votes (society_name,tower,contestant_name,is_archived,vote_count)
-                               VALUES (%s,%s,%s,%s,1)
-                               ON CONFLICT (society_name,tower,contestant_name,is_archived)
-                               DO UPDATE SET vote_count=votes.vote_count+1""",(society,tower,c,0))
+                            VALUES (%s,%s,%s,%s,1)
+                            ON CONFLICT (society_name,tower,contestant_name,is_archived)
+                            DO UPDATE SET vote_count=votes.vote_count+1""",(society,tower,c,0))
             cur.execute("UPDATE settings SET voted_count=voted_count+1 WHERE society_name=%s",(society,))
             voted_timestamp = datetime.now(pytz.utc)
             cur.execute("UPDATE households SET voted_in_cycle=%s, voted_at=%s WHERE id=%s",(VOTED_FLAG, voted_timestamp, household_id))
@@ -582,3 +618,8 @@ def submit_vote():
     finally:
         if conn: conn.close()
 
+if __name__ == '__main__':
+    # You would typically run this via a WSGI server in production.
+    # For local testing, you can uncomment this:
+    # app.run(debug=True)
+    pass
