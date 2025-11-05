@@ -29,7 +29,6 @@ def hash_sha256(password, salt=None):
     return f"sha256${hashed}"
 
 
-# --- CODE COMPARISON FUNCTION (FIXED FOR UNSALTED SHA-256 COMPATIBILITY) ---
 def compare_codes(entered_code, stored_hash):
     """
     Performs UNSALTED SHA-256 hash comparison for code validation.
@@ -49,8 +48,7 @@ def compare_codes(entered_code, stored_hash):
         # Re-hash the raw code using the admin app's unsalted method
         rehashed_code = hashlib.sha256(entered_code.encode('utf-8')).hexdigest()
         
-        # Compare the newly calculated hash with the stored hash value
-        # Use constant-time comparison for security against timing attacks
+        # Use constant-time comparison for security
         return secrets.compare_digest(rehashed_code, stored_hash_value)
 
     except Exception:
