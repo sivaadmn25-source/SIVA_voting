@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ballot Paper</title>
+
+<style>
+/* === Global Setup (No change needed) === */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f0f2f5;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    min-height: 100vh;
+    padding-top: 100px;
+    color: #333;
+    line-height: 1.4;
+}
+
+/* === BANNER (RIBBON) CORRECTION === */
+.ribbon {
+    width: 100%;
+    max-width: 600px; /* CORRECTED from 800px to 600px */
+    height: 70px;
+    background: linear-gradient(to bottom, #FF9933 33.33%, #FFFFFF 66.66%, #4e5eef 100%);
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+  .ribbon h1 { 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    font-size: 2rem;
+    font-weight: 800;
+    background: linear-gradient(to bottom, #FF9933 33.33%, #FFFFFF 66.66%, #138808 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: #0000FF;
+    letter-spacing: 2px;
+  }
+
+  .ribbon .siva-text {
+    font-weight: 800;
+    font-size: 2.2rem;
+    line-height: 1;
+    background: linear-gradient(270deg, gold, orange, yellow, green, blue, indigo, violet, gold);
+    background-size: 400% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: rainbow 5s linear infinite, flash 1s step-start infinite;
+  }
+
+@keyframes rainbow {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+
+/* === CONTAINER CORRECTION === */
+.container {
+    width: 95%;
+    max-width: 600px; /* CORRECTED from 800px to 600px */
+    background-color: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    margin-bottom: 30px;
+}
+
+/* === The rest of your CSS remains unchanged as it is excellent for mobile. === */
+
+.contestant-card {
+    display: flex;
+    align-items: center;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 15px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    background-color: #c7d6b5;
+}
+.contestant-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border-color: #cbd5e0;
+}
+.contestant-card.selected {
+    border-color: #34d399;
+    background-color: #d1fae5;
+    box-shadow: 0 0 0 3px rgba(5, 240, 79, 0.5);
+}
+
+.photo-container,
+.symbol-container {
+    width: 70px;
+    height: 70px;
+    flex-shrink: 0;
+}
+.photo-container {
+    margin-right: 15px;
+}
+.symbol-container {
+    margin-left: auto;
+}
+
+/* 🖼️ General image sizing and borders */
+.photo-container img,
+.symbol-container img {
+    width: 100%;       
+    height: 100%;      
+    border: 1px solid #e2e8f0;
+    background-color: white;
+}
+
+/* 🖼️ PHOTO: Square with Rounded Edges */
+.photo-container img {
+    object-fit: contain;      /* Fills the space (crops if necessary) */
+    border-radius: 8px;     /* Rounded corners */
+}
+
+/* ⭕ SYMBOL: Perfect Circle */
+.symbol-container img {
+    object-fit: contain;    /* Shrinks the entire symbol to fit inside the circle */
+    border-radius: 50%;     /* Perfect circle shape */
+}
+
+.contestant-info {
+    flex-grow: 1;
+}
+.contestant-name {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #5500ff;
+    margin-bottom: 5px;
+}
+
+.custom-checkbox {
+    width: 24px;
+    height: 24px;
+    border: 2px solid #021e01;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s, border-color 0.2s;
+    flex-shrink: 0;
+    margin-left: 15px;
+}
+.contestant-card.selected .custom-checkbox {
+    background-color: #10b981;
+    border-color: #10b981;
+}
+.custom-checkbox::after {
+    content: '✓';
+    color: white;
+    font-size: 16px;
+    line-height: 1;
+    display: none;
+}
+.contestant-card.selected .custom-checkbox::after {
+    display: block;
+}
+
+.contestant-card input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 100%;
+    width: 100%;
+    top: 0;
+    left: 0;
+    margin: 0;
+}
+
+.submit-btn {
+    width: 20%;
+    padding: 15px;
+    background-color: #4c51bf;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: block;
+    margin: 20px auto 0 auto;
+}
+.submit-btn:hover {
+    background-color: #3f42a6;
+}
+
+.overlay-message {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    opacity: 0;
+}
+.overlay-message.show {
+    display: flex;
+    opacity: 1;
+    pointer-events: auto;
+}
+.message-box {
+    background-color: white;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    text-align: center;
+    max-width: 90%;
+}
+.message-box h3 {
+    font-size: 1.5rem;
+    color: #10b981;
+    margin-bottom: 15px;
+}
+.message-box button {
+    background-color: #3b82f6;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: 600;
+    margin-top: 10px;
+}
+
+.instructions {
+    padding: 15px;
+    background-color: #fffbeb;
+    border: 1px solid #fcd34d;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-weight: 600;
+    color: #b45309;
+    text-align: center;
+}
+
+@media (max-width: 600px) {
+    .ribbon h1 { font-size: 1.2rem; gap: 8px; }
+    .chakra { width: 35px; height: 35px; }
+    .contestant-card { flex-direction: column; text-align: center; }
+    .photo-container, .symbol-container { margin: 0 auto 10px auto; }
+    .submit-btn { width: 60%; font-size: 1rem; }
+}
+/* .chakra {
+      width: 40px;
+      height: 40px;
+      animation: spinChakra 10s linear infinite;
+      transform-origin: 50% 50%;
+    }
+
+    @keyframes spinChakra {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }  */
+
+</style>
+</head>
+
+<body>
+
+<div class="ribbon">
+    <h1>
+        {{ languages[selected_language_code]['ballotPaper'] if selected_language_code else 'BALLOT PAPER' }}
+        {% if tower_name %} – {{ tower_name }}{% endif %}  <span class="siva-text">&nbsp;&nbsp; SIVA</span>
+    </h1>
+</div>
+
+<div class="container">
+    <div class="instructions">
+        {{ languages[selected_language_code].get('selectInstructions', 'Select up to {max_choices} contestant(s).').replace('{max_choices}', maxSelections|string) }}
+    </div>
+
+    <form method="POST" action="{{ url_for('submit_vote') }}" id="ballot-form">
+        {% for contestant in contestants %}
+        <div class="contestant-card">
+            <div class="photo-container">
+                {% if contestant.photo_b64 %}
+                                        <img src="{{ contestant.photo_b64 }}" alt="{{ contestant.name }} Photo">
+                {% else %}
+                                        <div class="photo-placeholder">👤</div>
+                {% endif %}
+            </div>
+
+            <div class="contestant-info">
+                <p class="contestant-name">{{ contestant.name }}</p>
+            </div>
+
+            <div class="symbol-container">
+                {% if contestant.symbol_b64 %}
+                    <img src="{{ contestant.symbol_b64 }}" alt="{{ contestant.name }} Symbol">
+                {% endif %}
+            </div>
+
+            <div class="custom-checkbox"></div>
+            <input type="checkbox" name="contestant" value="{{ contestant.name }}">
+        </div>
+        {% endfor %}
+
+        <button type="submit" class="submit-btn">{{ languages[selected_language_code].get('submitVoteBtn', 'Submit Vote') }}</button>
+        <button type="button" id="cancel-vote" class="submit-btn" style="background-color: #ef4444;">
+            {{ languages[selected_language_code].get('cancelVoteBtn', 'Cancel') }}
+        </button>
+    </form>
+</div>
+
+<div class="overlay-message" id="overlay-message">
+    <div class="message-box">
+        <h3 id="overlay-title"></h3>
+        <p id="overlay-text"></p>
+        <button id="overlay-confirm-btn">{{ languages[selected_language_code].get('close', 'Close') }}</button>
+    </div>
+</div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            
+            // CRITICAL FIX: Forces a fresh page load when user navigates back (BFcache prevention).
+            window.addEventListener('pageshow', function(event) {
+                if (event.persisted) {
+                    location.reload(); 
+                }
+            });
+
+            const maxSelections = parseInt("{{ maxSelections }}");
+            const langData = {{ languages | tojson }};
+            const currentLangCode = "{{ selected_language_code }}";
+
+            const overlay = document.getElementById('overlay-message');
+            const overlayTitle = document.getElementById('overlay-title');
+            const overlayText = document.getElementById('overlay-text');
+            
+            // The single button in the HTML overlay
+            const overlayConfirmBtn = document.getElementById('overlay-confirm-btn'); 
+            
+            let confirmAction = null; // Stores the function to run when the button is clicked
+
+            function getLocalizedString(key, defaultValue) {
+                // Safely access nested language data
+                return (langData[currentLangCode] && langData[currentLangCode][key]) ? langData[currentLangCode][key] : defaultValue;
+            }
+
+            /**
+             * Shows the overlay with custom message/title and sets the action for the button.
+             * @param {string} message - The message body.
+             * @param {string} title - The title/header.
+             * @param {function} [action] - The function to execute on button click. If null, the button just dismisses.
+             * @param {string} [buttonText] - Custom text for the button.
+             */
+            function showOverlayMessage(message, title, action = null, buttonText = getLocalizedString('close', 'Close')) {
+                overlayTitle.textContent = title;
+                overlayText.textContent = message;
+                
+                // Set title color for Success/Error
+                const isSuccess = (title.toLowerCase() === getLocalizedString('success', 'success').toLowerCase() || title.toLowerCase() === getLocalizedString('thankYou', 'thank you').toLowerCase());
+                overlayTitle.style.color = isSuccess ? '#10b981' : '#ef4444';
+                
+                // Set button text and store action
+                overlayConfirmBtn.textContent = buttonText;
+                confirmAction = action; 
+
+                // Set button color based on action type (red for exit, blue for close/stay)
+                overlayConfirmBtn.style.backgroundColor = action ? '#ef4444' : '#3b82f6';
+
+                overlay.classList.add('show');
+            }
+            
+            // Universal overlay button handler
+            overlayConfirmBtn.addEventListener('click', () => {
+                overlay.classList.remove('show');
+                if (confirmAction) {
+                    confirmAction(); // Execute stored action (like redirection for Cancel)
+                }
+                confirmAction = null; // Reset action
+            });
+
+            // --- CANCEL BUTTON LOGIC (User not willing to vote) ---
+            const cancelVoteBtn = document.getElementById('cancel-vote');
+
+            cancelVoteBtn.addEventListener('click', () => {
+                // Define the action: redirect to language select (Close the page)
+                const redirectAction = () => {
+                    // Uses replace to prevent back button from returning to ballot
+                    window.location.replace("{{ url_for('select_language') }}");
+                };
+
+                // Show confirmation overlay
+                showOverlayMessage(
+                    getLocalizedString('cancelVoteConfirm', 'Are you sure you want to cancel your vote? You will be taken back to the start.'),
+                    getLocalizedString('cancelVoteTitle', 'Confirm Exit'),
+                    redirectAction, // Action to be executed on confirmation
+                    getLocalizedString('yesCancel', 'Yes, Cancel') // Button text for confirmation
+                );
+            });
+
+            // --- CANDIDATE SELECTION LOGIC (Unchanged) ---
+            const contestantCards = document.querySelectorAll('.contestant-card');
+            contestantCards.forEach(card => {
+                const checkbox = card.querySelector('input[type="checkbox"]');
+
+                card.addEventListener('click', function(event) {
+                    // Prevent card click from toggling if user clicks directly on the checkbox
+                    if (event.target === checkbox) return; 
+                    checkbox.checked = !checkbox.checked;
+                    checkbox.dispatchEvent(new Event('change'));
+                });
+
+                checkbox.addEventListener('change', function () {
+                    const selectedCount = document.querySelectorAll('.contestant-card input[type="checkbox"]:checked').length;
+                    if (checkbox.checked) {
+                        if (selectedCount > maxSelections) {
+                            checkbox.checked = false;
+                            const errorMsg = getLocalizedString('maxChoicesExceeded', 'You can select a maximum of {max_choices} choice(s).').replace('{max_choices}', maxSelections);
+                            showOverlayMessage(errorMsg, getLocalizedString('submissionErrorTitle', 'Selection Error'));
+                        }
+                    }
+                    card.classList.toggle('selected', checkbox.checked);
+                });
+            });
+
+            // --- SUBMISSION LOGIC (Thank You -> Close Sequence) ---
+            const form = document.getElementById('ballot-form');
+            form.addEventListener('submit', async function (event) {
+                event.preventDefault();
+
+                const selectedCheckboxes = [...form.querySelectorAll('input[name="contestant"]:checked')];
+
+                if (selectedCheckboxes.length === 0) {
+                    showOverlayMessage(
+                        getLocalizedString('noContestantSelected', 'Please select at least one contestant.'),
+                        getLocalizedString('submissionErrorTitle', 'Submission Error')
+                    );
+                    return;
+                }
+                
+                // This check is effectively covered by the first check, but kept for explicit logic
+                if (selectedCheckboxes.length < 1) {
+                    showOverlayMessage(
+                        getLocalizedString('minSelectionRequired', 'Please select at least one contestant.'),
+                        getLocalizedString('submissionErrorTitle', 'Submission Error')
+                    );
+                    return;
+                }
+
+                const selectedContestants = selectedCheckboxes.map(input => input.value);
+
+                try {
+                    // Disable form elements during submission to prevent double posting
+                    const submitBtn = form.querySelector('button[type="submit"]');
+                    submitBtn.disabled = true;
+
+                    // This POST goes to the /submit_vote route (in app_votingsys.py)
+                    const response = await fetch(form.action, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contestants: selectedContestants })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        // SEQUENCE STEP 1: Show "Thank You" message (briefly)
+                        showOverlayMessage(
+                            data.message || getLocalizedString('voteRecorded', 'Your vote has been recorded successfully.'), 
+                            getLocalizedString('thankYou', 'Thank You'),
+                            null, // No action needed on button click here (auto-redirect handles close)
+                            getLocalizedString('close', 'Close')
+                        );
+
+                        // SEQUENCE STEP 2 & 3: Close the page (redirect) after a short pause
+                        setTimeout(() => {
+                            window.location.replace("{{ url_for('select_language') }}");
+                        }, 2000); // 2 seconds delay to allow user to read the message
+                        
+                    } else {
+                        // Error: Show message, let user dismiss the error box
+                        submitBtn.disabled = false; // Re-enable button on error
+                        showOverlayMessage(
+                            data.message || getLocalizedString('errorSubmittingVote', 'Error submitting vote.'),
+                            getLocalizedString('submissionErrorTitle', 'Submission Error')
+                        );
+                    }
+                } catch (error) {
+                    // Network error
+                    console.error(error);
+                    submitBtn.disabled = false;
+                    showOverlayMessage(getLocalizedString('networkError', 'A network error occurred. Please try again.'));
+                }
+            });
+        });
+       document.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && (e.key === 'c' || e.key === 'v' || e.key === 'x')) {
+                e.preventDefault();
+            }
+        });    
+    </script>
+        <footer id="centered-dev-footer">
+      Designed/Developed by: 
+      <a href="mailto:vpchaya@gmail.com" style="color: #0000FF;" class="underline hover:text-blue-700">
+        vpchaya@gmail.com
+      </a>
+    </footer>
+</body>
+</html>
