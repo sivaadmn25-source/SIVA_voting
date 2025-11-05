@@ -13,17 +13,24 @@ import hashlib, secrets
 # --- END MODIFIED IMPORTS ---
 
 
-# --- HASHING UTILITIES (FIXED FOR UNSALTED SHA-256 COMPATIBILITY) ---
-# NOTE: This matches the simpler hashing mechanism of app_adminsys.py.
+# --- HASHING UTILITIES (FIXED TO USE MASTER SALT) ---
+# NOTE: Both hash_sha256 (for storage) and compare_codes (for verification) 
+# must use the same salting logic (FLASK_SECRET_KEY).
 
 def hash_sha256(password, salt=None):
     """
-    Generates an UNSALTED SHA-256 hash of the password.
-    Returns the hash in 'sha256$hash' format, matching app_adminsys.py.
-    (The 'salt' parameter is ignored for compatibility.)
+    Generates a SALTED SHA-256 hash using FLASK_SECRET_KEY as the salt, 
+    matching the master logic in app_adminsys.py.
+    Returns the hash in 'sha256$hash' format.
     """
-    # Hash the raw password directly (UNSALTED)
-    hashed = hashlib.sha256(password.encode('utf-8')).hexdigest()
+    # Retrieve the same master salt (FLASK_SECRET_KEY) used in app_adminsys.py
+    master_salt = os.getenv("FLASK_SECRET_KEY", "default-salt").encode('utf-8')
+    
+    # Combine the salt and the raw password
+    data_to_hash = (master_salt + password.encode('utf-8'))
+    
+    # Hash the raw password + salt
+    hashed = hashlib.sha256(data_to_hash).hexdigest()
     
     # Return the hash prefixed with 'sha256$'
     return f"sha256${hashed}"
@@ -41,17 +48,15 @@ def compare_codes(entered_code, stored_hash):
     try:
         # 2. Extract the stored hash value and check prefix
         prefix, stored_hash_value = stored_hash.split('$', 1)
-         
+        
         if prefix != 'sha256':
              return False
         
         # 3. Retrieve the same salt used by app_adminsys.py
-        # If FLASK_SECRET_KEY is not set, use a default for safety, but 
-        # it MUST match the default/value used in app_adminsys.py.
+        # This is the same logic used in hash_sha256 above.
         salt = os.getenv("FLASK_SECRET_KEY", "default-salt").encode('utf-8')
         
-        # 4. Combine the salt and the entered code
-        # The structure (salt + raw_code) must exactly match app_adminsys.py
+        # 4. Combine the salt and the entered code 
         data_to_hash = (salt + entered_code.encode('utf-8'))
 
         # 5. Generate the re-hashed code using the correct salted formula
@@ -64,7 +69,7 @@ def compare_codes(entered_code, stored_hash):
         # In a real app, you would log the exception 'e' here.
         # print(f"Error during code comparison: {e}") 
         return False
- 
+    
 # --- Initialization ---
 load_dotenv()
 
@@ -467,7 +472,7 @@ def reset_code():
             return jsonify({"success": False, "message": "Invalid user identifier format."}), 400
         
         # --- HASH THE NEW CODE BEFORE STORING (MODIFIED) ---
-        # Generate new SHA-256 hash (UNSALTED for compatibility)
+        # Generate new SHA-256 hash (NOW SALTED, using the fixed hash_sha256)
         hashed_new_code = hash_sha256(new_code)
         
         # Update the database: Set the new HASHED code into 'reset_code'
@@ -496,61 +501,61 @@ def reset_code():
 # --- Verification: Face ---
 @app.route("/api/verify_face", methods=["POST"])
 def verify_face():
-#   data=request.get_json()
-#   society=data.get('society'); tower, flat, lane, house = data.get('tower'), data.get('flat'), data.get('lane'), data.get('house')
-#   image_data=data.get('image_data')
-#   if not society or not image_data: return jsonify({"verified":False,"message":"Society and image required"}),400
-#   conn=get_db()
-#   if not conn: return jsonify({"verified":False,"message":"DB connection error"}),500
-#   try:
-#       with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-#           # Voting schedule check
-#           cur.execute("SELECT start_time,end_time FROM voting_schedule WHERE society_name=%s",(society,))
-#           sched=cur.fetchone()
-#           start_time=datetime.fromisoformat(sched['start_time'].replace('Z','+00:00'))
-#           end_time=datetime.fromisoformat(sched['end_time'].replace('Z','+00:00'))
-#           if not (start_time<=datetime.now(pytz.utc)<end_time): return jsonify({"verified":False,"message":"Voting is closed"})
+#   data=request.get_json()
+#   society=data.get('society'); tower, flat, lane, house = data.get('tower'), data.get('flat'), data.get('lane'), data.get('house')
+#   image_data=data.get('image_data')
+#   if not society or not image_data: return jsonify({"verified":False,"message":"Society and image required"}),400
+#   conn=get_db()
+#   if not conn: return jsonify({"verified":False,"message":"DB connection error"}),500
+#   try:
+#       with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+#           # Voting schedule check
+#           cur.execute("SELECT start_time,end_time FROM voting_schedule WHERE society_name=%s",(society,))
+#           sched=cur.fetchone()
+#           start_time=datetime.fromisoformat(sched['start_time'].replace('Z','+00:00'))
+#           end_time=datetime.fromisoformat(sched['end_time'].replace('Z','+00:00'))
+#           if not (start_time<=datetime.now(pytz.utc)<end_time): return jsonify({"verified":False,"message":"Voting is closed"})
 #
-#           query="SELECT * FROM households WHERE society_name=%s AND face_recognition_image IS NOT NULL"
-#           params=[society]
-#           if tower and flat: query+=" AND tower=%s AND flat=%s"; params.extend([tower,flat])
-#           elif lane and house: query+=" AND tower=%s AND flat=%s"; params.extend([lane,house])
-#           elif flat: query+=" AND flat=%s"; params.extend([flat])
-#           elif not (tower or flat or lane or house): query+=" AND tower IS NULL AND flat IS NULL AND lane IS NULL AND house_number IS NULL"
-#           else: return jsonify({"verified":False,"message":"Incomplete household details"}),400
+#           query="SELECT * FROM households WHERE society_name=%s AND face_recognition_image IS NOT NULL"
+#           params=[society]
+#           if tower and flat: query+=" AND tower=%s AND flat=%s"; params.extend([tower,flat])
+#           elif lane and house: query+=" AND tower=%s AND flat=%s"; params.extend([lane,house])
+#           elif flat: query+=" AND flat=%s"; params.extend([flat])
+#           elif not (tower or flat or lane or house): query+=" AND tower IS NULL AND flat IS NULL AND lane IS NULL AND house_number IS NULL"
+#           else: return jsonify({"verified":False,"message":"Incomplete household details"}),400
 #
-#           cur.execute(query,tuple(params))
-#           row=cur.fetchone()
-#           if not row: return jsonify({"verified":False,"message":"No face record found"})
-#           if row['voted_in_cycle']==1: return jsonify({"verified":False,"message":"Already voted"})
-#           if row['is_admin_blocked']: return jsonify({"verified":False,"message":"Blocked"})
-#           if not row['is_vote_allowed']: return jsonify({"verified":False,"message":"Voting not allowed"})
+#           cur.execute(query,tuple(params))
+#           row=cur.fetchone()
+#           if not row: return jsonify({"verified":False,"message":"No face record found"})
+#           if row['voted_in_cycle']==1: return jsonify({"verified":False,"message":"Already voted"})
+#           if row['is_admin_blocked']: return jsonify({"verified":False,"message":"Blocked"})
+#           if not row['is_vote_allowed']: return jsonify({"verified":False,"message":"Voting not allowed"})
 #
-#           # Decode live image
-#           _,encoded=image_data.split(",",1) if "," in image_data else (None,image_data)
-#           live_np=np.array(Image.open(io.BytesIO(base64.b64decode(encoded))).convert('RGB'))
-#           live_emb=DeepFace.represent(img_path=live_np,model_name='Facenet',enforce_detection=True)[0]['embedding']
-#           stored_emb=json.loads(row['face_recognition_image'])
-#           verified=DeepFace.verify(img1_path=live_emb,img2_path=stored_emb,model_name='Facenet',distance_metric='cosine')['verified']
+#           # Decode live image
+#           _,encoded=image_data.split(",",1) if "," in image_data else (None,image_data)
+#           live_np=np.array(Image.open(io.BytesIO(base64.b64decode(encoded))).convert('RGB'))
+#           live_emb=DeepFace.represent(img_path=live_np,model_name='Facenet',enforce_detection=True)[0]['embedding']
+#           stored_emb=json.loads(row['face_recognition_image'])
+#           verified=DeepFace.verify(img1_path=live_emb,img2_path=stored_emb,model_name='Facenet',distance_metric='cosine')['verified']
 #
-#           if verified:
-#               session['household_id']=row['id']
-#               session['society_name']=society
-#               proof_timestamp_str = None
-#               if row['voted_in_cycle'] == 1 and row['voted_at']:
-#                   voted_time_ist = row['voted_at'].astimezone(IST)
-#                   proof_timestamp_str = voted_time_ist.strftime('%d-%m-%Y %I:%M:%S %p %Z')
-#               return jsonify({"verified":True,"message":"Verification successful","redirect_url":url_for('ballot')})
-#           else:
-#               return jsonify({"verified":False,"message":"Face not recognized"})
+#           if verified:
+#               session['household_id']=row['id']
+#               session['society_name']=society
+#               proof_timestamp_str = None
+#               if row['voted_in_cycle'] == 1 and row['voted_at']:
+#                   voted_time_ist = row['voted_at'].astimezone(IST)
+#                   proof_timestamp_str = voted_time_ist.strftime('%d-%m-%Y %I:%M:%S %p %Z')
+#               return jsonify({"verified":True,"message":"Verification successful","redirect_url":url_for('ballot')})
+#           else:
+#               return jsonify({"verified":False,"message":"Face not recognized"})
 #
-#   except ValueError:
-#       return jsonify({"verified":False,"message":"No face detected"})
-#   except Exception as e:
-#       app.logger.error(f"Face verification error: {e}",exc_info=True)
-#       return jsonify({"verified":False,"message":"Server error"}),500
-#   finally:
-#       if conn: conn.close()
+#       except ValueError:
+#           return jsonify({"verified":False,"message":"No face detected"})
+#       except Exception as e:
+#           app.logger.error(f"Face verification error: {e}",exc_info=True)
+#           return jsonify({"verified":False,"message":"Server error"}),500
+#   finally:
+#       if conn: conn.close()
     return jsonify({"verified": False, "message": "Face verification temporarily disabled"}), 200
 
 # --- Ballot page ---
