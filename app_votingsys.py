@@ -28,33 +28,43 @@ def hash_sha256(password, salt=None):
     # Return the hash prefixed with 'sha256$'
     return f"sha256${hashed}"
 
-
-def compare_codes(entered_code, stored_hash):
+def compare_codes(entered_code, stored_hash): 
     """
-    Performs UNSALTED SHA-256 hash comparison for code validation.
+    Performs SALTED SHA-256 hash comparison for code validation, 
+    matching the logic in app_adminsys.py by including the FLASK_SECRET_KEY as salt.
     The stored_hash must be in 'sha256$hash' format.
     """
+    # 1. Basic validation
     if not stored_hash or '$' not in stored_hash:
         return False 
 
     try:
-        # We only care about the hash value itself
+        # 2. Extract the stored hash value and check prefix
         prefix, stored_hash_value = stored_hash.split('$', 1)
-        
-        # Check if the prefix matches what we expect
+         
         if prefix != 'sha256':
              return False
         
-        # Re-hash the raw code using the admin app's unsalted method
-        rehashed_code = hashlib.sha256(entered_code.encode('utf-8')).hexdigest()
+        # 3. Retrieve the same salt used by app_adminsys.py
+        # If FLASK_SECRET_KEY is not set, use a default for safety, but 
+        # it MUST match the default/value used in app_adminsys.py.
+        salt = os.getenv("FLASK_SECRET_KEY", "default-salt").encode('utf-8')
         
-        # Use constant-time comparison for security
+        # 4. Combine the salt and the entered code
+        # The structure (salt + raw_code) must exactly match app_adminsys.py
+        data_to_hash = (salt + entered_code.encode('utf-8'))
+
+        # 5. Generate the re-hashed code using the correct salted formula
+        rehashed_code = hashlib.sha256(data_to_hash).hexdigest()
+        
+        # 6. Use constant-time comparison for security
         return secrets.compare_digest(rehashed_code, stored_hash_value)
 
-    except Exception:
+    except Exception as e:
+        # In a real app, you would log the exception 'e' here.
+        # print(f"Error during code comparison: {e}") 
         return False
-
-
+ 
 # --- Initialization ---
 load_dotenv()
 
